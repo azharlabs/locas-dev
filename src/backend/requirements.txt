@@ -1,0 +1,9 @@
+httpx
+openai
+python-dotenv
+requests
+googlemaps 
+geopy
+flask
+flask-cors
+gunicorn
