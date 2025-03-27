@@ -25,18 +25,63 @@ export default function Home() {
     // Only run this once
     if (sessionInitialized.current) return;
     
-    const storedSessionId = localStorage.getItem('sessionId');
-    if (storedSessionId) {
-      console.log("Found existing session ID in localStorage:", storedSessionId);
-      setSessionId(storedSessionId);
-      loadChatHistory(storedSessionId);
-    } else {
-      // Create a new session ID on first load if none exists
+    // Function to create a new session ID
+    const createNewSession = () => {
       const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       console.log("Created new session ID:", newSessionId);
       setSessionId(newSessionId);
+      
+      // CRITICAL: Always store in localStorage for persistence across renders
       localStorage.setItem('sessionId', newSessionId);
+      
+      // Log this important action for debugging
+      console.log("%c[SESSION] Created new session ID in localStorage", "color: green; font-weight: bold");
+      
+      return newSessionId;
+    };
+    
+    try {
+      // Try to get session from localStorage first - this is the source of truth
+      const storedSessionId = localStorage.getItem('sessionId');
+      
+      if (storedSessionId) {
+        console.log("%c[SESSION] Found existing session ID in localStorage: " + storedSessionId, 
+          "color: blue; font-weight: bold");
+        
+        // Set state with localStorage value
+        setSessionId(storedSessionId);
+        
+        // Validate the session ID by trying to load history
+        loadChatHistory(storedSessionId)
+          .then(success => {
+            console.log("%c[SESSION] Successfully validated session: " + storedSessionId, 
+              "color: green; font-weight: bold");
+          })
+          .catch(error => {
+            console.error("%c[SESSION] Error with stored session, creating new one: " + error, 
+              "color: red; font-weight: bold");
+            createNewSession();
+          });
+      } else {
+        // Create a new session ID on first load if none exists
+        console.log("%c[SESSION] No session found in localStorage, creating new one", 
+          "color: orange; font-weight: bold");
+        createNewSession();
+      }
+    } catch (error) {
+      console.error("%c[SESSION] Error initializing session, creating emergency session: " + error, 
+        "color: red; font-weight: bold");
+      createNewSession();
     }
+    
+    // Add event listener for storage changes to keep session in sync across tabs
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'sessionId' && event.newValue !== sessionId) {
+        console.log("%c[SESSION] Session ID changed in another tab, updating", 
+          "color: purple; font-weight: bold");
+        setSessionId(event.newValue);
+      }
+    });
     
     sessionInitialized.current = true;
   }, []);
@@ -87,14 +132,39 @@ export default function Home() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
+    // Force read from localStorage before sending request to ensure we have latest value
+    // This is crucial for session continuity across component re-renders
+    const storedSessionId = localStorage.getItem('sessionId');
+    
+    // If we have a valid session in localStorage but state doesn't match, update state
+    if (storedSessionId && storedSessionId !== sessionId) {
+      console.warn("Session ID state doesn't match localStorage, correcting");
+      setSessionId(storedSessionId);
+    }
+    
+    // Ensure we have a session ID before sending the request
+    if (!sessionId && !storedSessionId) {
+      console.error("No session ID available in state or localStorage");
+      // Generate one if somehow we don't have one at all
+      const newSessionId = `emergency_session_${Date.now()}`;
+      setSessionId(newSessionId);
+      localStorage.setItem('sessionId', newSessionId);
+      console.log("Created emergency session ID:", newSessionId);
+    } else {
+      console.log("Sending request with session ID:", sessionId || storedSessionId);
+    }
+    
     try {
-      // Process the query with session ID if available
-      const response = await processQuery(text, sessionId);
+      // Always use the most reliable session ID we have (localStorage takes precedence)
+      const finalSessionId = storedSessionId || sessionId;
+      const response = await processQuery(text, finalSessionId);
       
-      // Always store session ID if received - this ensures we keep using the same one
+      // Verify and update session ID state if needed
       if (response.session_id) {
-        setSessionId(response.session_id);
-        console.log("Using session ID:", response.session_id);
+        if (response.session_id !== sessionId) {
+          console.log("Updating session ID state to match response:", response.session_id);
+          setSessionId(response.session_id);
+        }
       }
       
       // Add assistant message

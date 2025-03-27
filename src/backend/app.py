@@ -82,18 +82,42 @@ async def process_query():
         user_query = data.get('query')
         logger.info(f"Processing query: {user_query}")
         
-        # Get or create session ID
+        # Use client-provided session ID
         session_id = data.get('session_id')
         if not session_id:
+            # This should never happen now, but handle it gracefully if it does
             session_id = str(uuid.uuid4())
-            logger.info(f"Created new session ID: {session_id}")
+            logger.error(f"CRITICAL: Client didn't provide session ID, created emergency one: {session_id}")
         else:
-            logger.info(f"Using existing session ID: {session_id}")
+            logger.info(f"Using client-provided session ID: {session_id}")
             
-        # Verify the session ID exists in Redis
-        if not redis_service.get_session(session_id):
-            logger.warning(f"Session ID {session_id} not found in Redis, creating new session")
-            redis_service.save_session(session_id, {"created_at": str(datetime.datetime.now())})
+        # Clean up session_id value (sanitize it)
+        try:
+            # Ensure it's a string
+            session_id = str(session_id).strip()
+            
+            # Validate session ID format - log warnings but don't reject IDs
+            if len(session_id) < 8:
+                logger.warning(f"Suspicious session ID format (too short): {session_id}")
+            
+            # Check for common session ID patterns
+            if session_id.startswith(('session_', 'emergency_', 'fallback_')):
+                logger.info(f"Recognized session ID pattern: {session_id[:10]}...")
+            else:
+                logger.warning(f"Unusual session ID pattern: {session_id[:10]}...")
+                
+        except Exception as e:
+            logger.error(f"Error processing session ID: {str(e)}")
+            
+        # Initialize a new session if it doesn't exist yet
+        session_data = redis_service.get_session(session_id)
+        if not session_data:
+            logger.info(f"Initializing new session in Redis: {session_id}")
+            redis_service.save_session(session_id, {
+                "created_at": str(datetime.datetime.now()),
+                "chat_history": [],
+                # Initialize with empty history - don't create a new session ID
+            })
         
         # Get chat history and last location from Redis
         chat_history = redis_service.get_chat_history(session_id)
@@ -164,12 +188,14 @@ async def process_query():
                 logger.info(f"Saving location to session: {location_data}")
                 redis_service.save_location(session_id, location_data)
             
-            # Return the successful result
-            logger.info("Successfully processed query")
+            # Return the successful result with the session ID
+            # ALWAYS return the same session ID that was provided in the request
+            # This is critical for maintaining session continuity
+            logger.info(f"Successfully processed query for session {session_id}")
             return jsonify({
                 'status': 'success',
                 'result': result,
-                'session_id': session_id
+                'session_id': session_id  # Always echo back the same session ID
             })
             
         except Exception as e:
@@ -193,9 +219,10 @@ def get_chat_history():
         session_id = request.args.get('session_id')
         
         if not session_id:
+            logger.error("API called without session ID")
             return jsonify({
                 'status': 'error',
-                'message': 'No session ID provided'
+                'message': 'No session ID provided - unable to retrieve chat history'
             }), 400
         
         # Get the chat history from Redis

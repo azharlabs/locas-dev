@@ -12,6 +12,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !isLoading) {
+      // Log for debugging purposes
+      console.log("Submitting message:", message.length > 50 ? message.substring(0, 50) + "..." : message);
+      
       onSendMessage(message);
       setMessage('');
     }

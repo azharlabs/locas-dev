@@ -1,5 +1,6 @@
 import os
 import json
+import datetime
 from typing import Dict, Any, Optional, List, Union
 import redis
 
@@ -105,20 +106,30 @@ class RedisService:
             True if successful, False otherwise
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Get existing session
             session_data = self.get_session(session_id)
             
-            # Return False if session doesn't exist
+            # If session doesn't exist, create a new one with the update data
             if not session_data:
-                return False
+                logger.info(f"Creating new session {session_id} during update since it didn't exist")
+                session_data = {
+                    "created_at": str(datetime.datetime.now()),
+                    "chat_history": []
+                }
             
             # Update the session data
             session_data.update(update_data)
+            logger.info(f"Updated session {session_id} with new data")
             
             # Save the updated session
             return self.save_session(session_id, session_data)
         except Exception as e:
-            print(f"Error updating session: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error updating session {session_id}: {str(e)}")
             return False
     
     def delete_session(self, session_id: str) -> bool:
@@ -151,12 +162,19 @@ class RedisService:
             True if successful, False otherwise
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Get existing session
             session_data = self.get_session(session_id)
             
             # Create new session if it doesn't exist
             if not session_data:
-                session_data = {"chat_history": []}
+                logger.info(f"Creating new session {session_id} during chat history update")
+                session_data = {
+                    "chat_history": [],
+                    "created_at": str(datetime.datetime.now())
+                }
             
             # Ensure chat_history exists
             if "chat_history" not in session_data:
@@ -164,11 +182,14 @@ class RedisService:
             
             # Add message to chat history
             session_data["chat_history"].append(message)
+            logger.info(f"Added message to chat history for session {session_id}")
             
             # Save the updated session
             return self.save_session(session_id, session_data)
         except Exception as e:
-            print(f"Error adding to chat history: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error adding to chat history for session {session_id}: {str(e)}")
             return False
     
     def get_chat_history(self, session_id: str) -> List[Dict[str, str]]:
@@ -206,10 +227,25 @@ class RedisService:
             True if successful, False otherwise
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            # Log the location being saved
+            logger.info(f"Saving location to session {session_id}: {location}")
+            
             # Update the session with the location
-            return self.update_session(session_id, {"last_location": location})
+            result = self.update_session(session_id, {"last_location": location})
+            
+            if result:
+                logger.info(f"Successfully saved location to session {session_id}")
+            else:
+                logger.warning(f"Failed to save location to session {session_id}")
+                
+            return result
         except Exception as e:
-            print(f"Error saving location: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error saving location to session {session_id}: {str(e)}")
             return False
     
     def get_last_location(self, session_id: str) -> Optional[Dict[str, Any]]:
@@ -223,16 +259,27 @@ class RedisService:
             Location data or None if not available
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Get existing session
             session_data = self.get_session(session_id)
             
             # Return None if session doesn't exist or has no last_location
-            if not session_data or "last_location" not in session_data:
+            if not session_data:
+                logger.warning(f"No session found for {session_id} when getting last location")
+                return None
+                
+            if "last_location" not in session_data:
+                logger.info(f"No last_location found in session {session_id}")
                 return None
             
+            logger.info(f"Retrieved last location for session {session_id}: {session_data['last_location']}")
             return session_data["last_location"]
         except Exception as e:
-            print(f"Error getting last location: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting last location for session {session_id}: {str(e)}")
             return None
     
     def ping(self) -> bool:
