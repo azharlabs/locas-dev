@@ -36,6 +36,11 @@ class LocationParser:
             - clean_query: User query with location information removed
             - coordinates_dict: Dictionary with 'lat' and 'lng' keys, or None if no location found
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Parsing query: {user_query}")
+        
         # Check for Google Maps URL patterns
         url_pattern = r'(https?://(?:www\.)?google\.com/maps[^\s]+)'
         url_match = re.search(url_pattern, user_query)
@@ -46,6 +51,7 @@ class LocationParser:
         if url_match:
             # Extract URL and get coordinates
             maps_url = url_match.group(1)
+            logger.info(f"Found Google Maps URL: {maps_url}")
             coordinates = self.extract_coordinates_from_maps_url(maps_url)
             
             # Remove the URL from the query
@@ -62,24 +68,36 @@ class LocationParser:
                 lat = float(match.group(1))
                 lng = float(match.group(2))
                 
+                logger.info(f"Found coordinate pattern: {lat}, {lng}")
+                
                 # Verify the coordinates are in valid range
                 if abs(lat) <= 90 and abs(lng) <= 180:
                     coordinates = {'lat': lat, 'lng': lng}
+                    logger.info(f"Valid coordinates: {coordinates}")
                     
                     # Remove the coordinates from the query
                     clean_query = user_query[:match.start()] + user_query[match.end():].strip()
+                else:
+                    logger.warning(f"Invalid coordinates: {lat}, {lng} - outside valid range")
             else:
                 # Try to extract location from the query as an address
-                # This is more complex - we'll use a simple approach here
+                logger.info("No coordinates found, trying to extract address")
                 address_candidates = self.extract_potential_addresses(user_query)
+                logger.info(f"Address candidates: {address_candidates}")
                 
                 for address in address_candidates:
                     coordinates = self.extract_coordinates_from_search(address)
                     if coordinates:
+                        logger.info(f"Found coordinates for address '{address}': {coordinates}")
                         # Remove the address from the query
                         clean_query = user_query.replace(address, "").strip()
                         break
         
+        if coordinates:
+            logger.info(f"Extracted coordinates: {coordinates}")
+        else:
+            logger.warning("No coordinates could be extracted from query")
+            
         return clean_query, coordinates
     
     def extract_coordinates_from_maps_url(self, url: str) -> Optional[Dict[str, float]]:

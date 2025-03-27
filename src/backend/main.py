@@ -1,18 +1,24 @@
 import os
 import asyncio
 from dotenv import load_dotenv
+import logging
 
 from assistant import LocationAssistant
 from models import AppConfig
+from logging_config import configure_logger
 
 async def main():
     """Entry point for the application."""
+    # Configure logging
+    logger = configure_logger()
+    logger.info("Starting Location Assistant CLI")
+    
     # Load environment variables
     load_dotenv()
     
     # Get API keys from environment
     config = AppConfig.from_env()
-    print("config============", config)
+    logger.info(f"Configuration loaded: {config}")
     
     # Check for required API keys
     if not config.openai_api_key:

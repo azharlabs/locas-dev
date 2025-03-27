@@ -71,17 +71,36 @@ class LocationAssistant:
         Returns:
             Response string
         """
+        import logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
         # Parse the user query to extract location information if not provided
         parsed_query, extracted_coordinates = await self._parse_query(user_query)
+        
+        # Log input parameters and extracted data
+        logger.info(f"Query: {user_query}")
+        logger.info(f"Input coordinates: lat={latitude}, lng={longitude}")
+        logger.info(f"Extracted coordinates: {extracted_coordinates}")
         
         # Use extracted coordinates if no explicit coordinates provided
         if (latitude is None or longitude is None) and extracted_coordinates:
             latitude = extracted_coordinates.get('lat')
             longitude = extracted_coordinates.get('lng')
-            print(f"Using extracted coordinates: Latitude {latitude}, Longitude {longitude}")
+            logger.info(f"Using extracted coordinates: Latitude {latitude}, Longitude {longitude}")
         
         # If still no coordinates, use default (San Francisco)
         if latitude is None or longitude is None:
+            logger.warning("No coordinates available, using default location")
+            return "default location"
+            
+        # Validate that coordinates are of correct type (float)
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+            logger.info(f"Validated coordinates: Latitude {latitude}, Longitude {longitude}")
+        except (ValueError, TypeError) as e:
+            logger.error(f"Coordinate validation error: {str(e)}")
             return "default location"
         
         # Create the HTTP client
