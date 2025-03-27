@@ -91,7 +91,7 @@ class LocationAssistant:
         
         # If still no coordinates, use default (San Francisco)
         if latitude is None or longitude is None:
-            logger.warning("No coordinates available")
+            logger.warning("No coordinates available, returning no valid address")
             return "no valid address"
             
         # Validate that coordinates are of correct type (float)

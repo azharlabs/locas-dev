@@ -5,7 +5,7 @@ import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
 import TypingIndicator from '../components/TypingIndicator';
 import { processQuery, getChatHistory, ApiResponse, ChatHistoryItem } from '../lib/api';
-import { FaLock } from 'react-icons/fa';
+import { FaMapMarkerAlt } from 'react-icons/fa';
 
 type Message = {
   text: string;
@@ -18,14 +18,27 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sessionInitialized = useRef<boolean>(false);
 
-  // Load session from localStorage on initial load
+  // Load or create session on initial load only
   useEffect(() => {
+    // Only run this once
+    if (sessionInitialized.current) return;
+    
     const storedSessionId = localStorage.getItem('sessionId');
     if (storedSessionId) {
+      console.log("Found existing session ID in localStorage:", storedSessionId);
       setSessionId(storedSessionId);
       loadChatHistory(storedSessionId);
+    } else {
+      // Create a new session ID on first load if none exists
+      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      console.log("Created new session ID:", newSessionId);
+      setSessionId(newSessionId);
+      localStorage.setItem('sessionId', newSessionId);
     }
+    
+    sessionInitialized.current = true;
   }, []);
 
   // Scroll to bottom when messages change
@@ -44,14 +57,18 @@ export default function Home() {
   const loadChatHistory = async (sid: string) => {
     try {
       setIsLoading(true);
+      console.log("Loading chat history for session:", sid);
       const response = await getChatHistory(sid);
       
       if (response.status === 'success' && response.chat_history) {
+        console.log("Loaded chat history:", response.chat_history.length, "messages");
         const loadedMessages = response.chat_history.map((item: ChatHistoryItem) => ({
           text: item.content,
           sender: item.role
         }));
         setMessages(loadedMessages);
+      } else {
+        console.log("No chat history found or error:", response.status);
       }
     } catch (error) {
       console.error('Error loading chat history:', error);
@@ -74,9 +91,10 @@ export default function Home() {
       // Process the query with session ID if available
       const response = await processQuery(text, sessionId);
       
-      // Store session ID if received and not already set
-      if (response.session_id && !sessionId) {
+      // Always store session ID if received - this ensures we keep using the same one
+      if (response.session_id) {
         setSessionId(response.session_id);
+        console.log("Using session ID:", response.session_id);
       }
       
       // Add assistant message
@@ -113,7 +131,7 @@ export default function Home() {
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary-100">
-                  <FaLock className="text-2xl text-primary-600" />
+                  <FaMapMarkerAlt className="text-2xl text-primary-600" />
                 </div>
                 <h2 className="mb-2 text-2xl font-bold text-gray-800">
                   Locas

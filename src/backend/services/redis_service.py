@@ -41,15 +41,23 @@ class RedisService:
             Session data dictionary or None if not found
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Get the session data from Redis
             session_data = self.redis_client.get(f"session:{session_id}")
             
             # Return parsed data if it exists
             if session_data:
+                logger.info(f"Retrieved session {session_id} from Redis")
                 return json.loads(session_data)
+            
+            logger.warning(f"Session {session_id} not found in Redis")
             return None
         except Exception as e:
-            print(f"Error retrieving session: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error retrieving session {session_id}: {str(e)}")
             return None
     
     def save_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
@@ -64,6 +72,9 @@ class RedisService:
             True if successful, False otherwise
         """
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            
             # Convert data to JSON string
             session_json = json.dumps(session_data)
             
@@ -73,9 +84,13 @@ class RedisService:
                 self.session_expiry,
                 session_json
             )
+            
+            logger.info(f"Saved session {session_id} to Redis with expiry {self.session_expiry}s")
             return True
         except Exception as e:
-            print(f"Error saving session: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error saving session {session_id}: {str(e)}")
             return False
     
     def update_session(self, session_id: str, update_data: Dict[str, Any]) -> bool:

@@ -1,6 +1,7 @@
 import os
 import asyncio
 import uuid
+import datetime
 import logging
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
@@ -88,6 +89,11 @@ async def process_query():
             logger.info(f"Created new session ID: {session_id}")
         else:
             logger.info(f"Using existing session ID: {session_id}")
+            
+        # Verify the session ID exists in Redis
+        if not redis_service.get_session(session_id):
+            logger.warning(f"Session ID {session_id} not found in Redis, creating new session")
+            redis_service.save_session(session_id, {"created_at": str(datetime.datetime.now())})
         
         # Get chat history and last location from Redis
         chat_history = redis_service.get_chat_history(session_id)
@@ -129,9 +135,9 @@ async def process_query():
             
             logger.info(f"Result: {result[:100]}...")
             
-            # Check if we used no valid address (indicating no location was found)
+            # Check if we used no valid address
             if "no valid address" in result.lower():
-                logger.warning("No valid location found")
+                logger.warning(f"No valid location found for session {session_id}")
                 return jsonify({
                     'status': 'warning',
                     'message': 'No location information found in query',
