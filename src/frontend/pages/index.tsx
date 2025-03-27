@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import ChatMessage from '../components/ChatMessage';
 import ChatInput from '../components/ChatInput';
 import TypingIndicator from '../components/TypingIndicator';
-import { processQuery } from '../lib/api';
+import { processQuery, getChatHistory, ApiResponse, ChatHistoryItem } from '../lib/api';
 import { FaLock } from 'react-icons/fa';
 
 type Message = {
@@ -16,11 +16,49 @@ export default function Home() {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Load session from localStorage on initial load
+  useEffect(() => {
+    const storedSessionId = localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+      loadChatHistory(storedSessionId);
+    }
+  }, []);
+
+  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // Save session ID to localStorage when it changes
+  useEffect(() => {
+    if (sessionId) {
+      localStorage.setItem('sessionId', sessionId);
+    }
+  }, [sessionId]);
+
+  // Load chat history from the server
+  const loadChatHistory = async (sid: string) => {
+    try {
+      setIsLoading(true);
+      const response = await getChatHistory(sid);
+      
+      if (response.status === 'success' && response.chat_history) {
+        const loadedMessages = response.chat_history.map((item: ChatHistoryItem) => ({
+          text: item.content,
+          sender: item.role
+        }));
+        setMessages(loadedMessages);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,13 +71,18 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      // Process the query
-      const response = await processQuery(text);
+      // Process the query with session ID if available
+      const response = await processQuery(text, sessionId);
+      
+      // Store session ID if received and not already set
+      if (response.session_id && !sessionId) {
+        setSessionId(response.session_id);
+      }
       
       // Add assistant message
       if (response.status === 'success') {
         const assistantMessage: Message = { 
-          text: response.result, 
+          text: response.result || 'No result received', 
           sender: 'assistant' 
         };
         setMessages((prev) => [...prev, assistantMessage]);

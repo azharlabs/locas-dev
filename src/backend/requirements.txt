@@ -7,3 +7,4 @@ geopy
 flask
 flask-cors
 gunicorn
+redis
