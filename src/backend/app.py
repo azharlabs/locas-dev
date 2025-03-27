@@ -123,18 +123,18 @@ async def process_query():
                 logger.info(f"Using previous location: lat={lat}, lng={lng}")
                 result = await assistant.process_query(user_query, latitude=lat, longitude=lng)
             else:
-                # Process normally, but this will likely return default location
+                # Process normally, but this will likely return `no valid address`
                 logger.info("No coordinates available, letting assistant extract them")
                 result = await assistant.process_query(user_query)
             
             logger.info(f"Result: {result[:100]}...")
             
-            # Check if we used default location (indicating no location was found)
-            if "default location" in result.lower() or "san francisco" in result.lower():
-                logger.warning("Default location used - no valid location found")
+            # Check if we used no valid address (indicating no location was found)
+            if "no valid address" in result.lower():
+                logger.warning("No valid location found")
                 return jsonify({
                     'status': 'warning',
-                    'message': 'No location information found in query, used default location',
+                    'message': 'No location information found in query',
                     'result': "The address was not found. Kindly include the address in your query to proceed.",
                     'session_id': session_id
                 })

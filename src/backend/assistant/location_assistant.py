@@ -91,8 +91,8 @@ class LocationAssistant:
         
         # If still no coordinates, use default (San Francisco)
         if latitude is None or longitude is None:
-            logger.warning("No coordinates available, using default location")
-            return "default location"
+            logger.warning("No coordinates available")
+            return "no valid address"
             
         # Validate that coordinates are of correct type (float)
         try:
@@ -101,7 +101,7 @@ class LocationAssistant:
             logger.info(f"Validated coordinates: Latitude {latitude}, Longitude {longitude}")
         except (ValueError, TypeError) as e:
             logger.error(f"Coordinate validation error: {str(e)}")
-            return "default location"
+            return "no valid address"
         
         # Create the HTTP client
         async with httpx.AsyncClient(timeout=30) as client:
