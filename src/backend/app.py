@@ -60,11 +60,11 @@ async def process_query():
             # We'll pass the raw query to the assistant which will extract location information
             result = await assistant.process_query(user_query)
             
-            # Check if we used default location (indicating no location was found)
-            if "default location" in result.lower() or "san francisco" in result.lower():
+            # Check if we used no valid address (indicating no location was found)
+            if "no valid address" in result.lower():
                 return jsonify({
                     'status': 'warning',
-                    'message': 'No location information found in query, used default location',
+                    'message': 'No location information found in query',
                     'result': "The address was not found. Kindly include the address in your query to proceed."
                 })
             

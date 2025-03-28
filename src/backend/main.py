@@ -76,14 +76,14 @@ async def main():
             if latitude is not None and longitude is not None:
                 print(f"Using coordinates: Latitude {latitude}, Longitude {longitude}")
             else:
-                print("Will try to extract location from query or use default location")
+                print("Will try to extract location from query")
             
             print("Processing, please wait...\n")
             
             # Process the query with explicit coordinates
             result = await assistant.process_query(full_query, latitude, longitude)
         except ValueError:
-            print("Invalid coordinates format. Will try to extract location from query or use default location")
+            print("Invalid coordinates format. Will try to extract location from query")
             print("Processing, please wait...\n")
             
             # Process the query without explicit coordinates
@@ -93,7 +93,7 @@ async def main():
         # Process the query with location information extracted from the query itself
         if 'result' not in locals():
             print(f"\nProcessing query: {full_query}")
-            print("Will try to extract location from query or use default location")
+            print("Will try to extract location from query")
             print("Processing, please wait...\n")
             result = await assistant.process_query(full_query)
         

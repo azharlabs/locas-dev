@@ -82,7 +82,7 @@ class LocationAssistant:
         
         # If still no coordinates, use default (San Francisco)
         if latitude is None or longitude is None:
-            return "default location"
+            return "no valid address"
         
         # Create the HTTP client
         async with httpx.AsyncClient(timeout=30) as client:
